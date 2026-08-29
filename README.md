@@ -44,3 +44,50 @@ Le projet s'articule autour d'une séparation stricte des responsabilités :
 **1. Démarrer l'infrastructure (Bases de données et Inférence)**
 ```bash
 docker-compose up -d
+```
+
+**2. Lancer le Backend Rust**
+```bash
+cargo run
+```
+*Note : Au premier lancement, le backend téléchargera automatiquement les modèles IA dans le conteneur Ollama (cela peut prendre quelques minutes selon votre connexion).*
+
+**3. Accéder à l'interface**
+Ouvrez votre navigateur et rendez-vous sur : `http://localhost:3000`
+
+---
+
+## 📡 Endpoints API
+
+Si vous préférez utiliser le projet en mode *Headless* (via Postman ou cURL) :
+
+### Ingestion d'un document
+```http
+POST /api/ingest
+Content-Type: application/json
+
+{
+  "text": "Le contenu de votre documentation technique...",
+  "source": "nom_du_fichier.md"
+}
+```
+
+### Interrogation (Chat)
+```http
+POST /api/ask
+Content-Type: application/json
+
+{
+  "question": "Comment configurer le protocole réseau ?"
+}
+```
+
+---
+
+## 🎯 Pourquoi ce projet ?
+
+L'objectif était de démontrer la mise en place d'un pipeline MLOps complet, de la gestion de l'infrastructure sous-jacente (GPU passthrough) jusqu'à l'exposition d'une API backend robuste. Le choix de Rust s'est imposé pour sa fiabilité d'exécution et sa capacité à traiter des flux de données asynchrones sans compromis sur la consommation des ressources.
+
+---
+**Auteur :** Alexis Danlos  
+*Développé dans le cadre d'une exploration des architectures IA décentralisées.*
