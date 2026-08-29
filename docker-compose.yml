@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # NOUVEAU : Conteneur d'initialisation
+  ollama-init:
+    image: curlimages/curl:latest
+    depends_on:
+      - ollama
+    # On attend 5 secondes qu'Ollama démarre, puis on lance les téléchargements via son API
+    command: >
+      sh -c "
+        sleep 5;
+        echo 'Téléchargement de nomic-embed-text...';
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"nomic-embed-text\"}';
+        echo 'Téléchargement de mistral...';
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"mistral\"}';
+        echo 'Modèles téléchargés !'
+      "
+
+volumes:
+  qdrant_data:
+  ollama_data:

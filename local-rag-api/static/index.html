@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Local - Rust & Mistral</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen flex flex-col items-center py-10">
+
+    <div class="w-full max-w-4xl bg-white shadow-xl rounded-lg overflow-hidden flex flex-col md:flex-row h-[80vh]">
+        
+        <!-- Panneau de Gauche : Ingestion -->
+        <div class="w-full md:w-1/3 bg-gray-50 p-6 border-r border-gray-200 flex flex-col">
+            <h2 class="text-xl font-bold mb-4 text-blue-600">Base de connaissances</h2>
+            <textarea id="ingestText" class="w-full h-48 p-3 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 text-sm" placeholder="Collez votre documentation technique ici (Markdown ou texte brut)..."></textarea>
+            <input type="text" id="ingestSource" class="w-full mt-3 p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Nom de la source (ex: doc.md)">
+            
+            <button onclick="ingestData()" id="ingestBtn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">
+                Ingérer le document
+            </button>
+            <p id="ingestStatus" class="mt-3 text-sm text-center font-medium"></p>
+        </div>
+
+        <!-- Panneau de Droite : Chat -->
+        <div class="w-full md:w-2/3 p-6 flex flex-col relative">
+            <h2 class="text-xl font-bold mb-4 text-gray-800">Interface de Requête</h2>
+            
+            <div id="chatBox" class="flex-grow overflow-y-auto border rounded-md p-4 bg-gray-50 mb-4 flex flex-col space-y-4">
+                <div class="text-gray-500 text-sm text-center mt-10">Ingérez un document à gauche, puis posez vos questions ici.</div>
+            </div>
+
+            <div class="flex space-x-2">
+                <input type="text" id="questionInput" onkeypress="handleEnter(event)" class="flex-grow p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Posez une question sur vos documents...">
+                <button onclick="askQuestion()" id="askBtn" class="bg-gray-800 hover:bg-black text-white font-semibold py-3 px-6 rounded transition">
+                    Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function ingestData() {
+            const text = document.getElementById('ingestText').value;
+            const source = document.getElementById('ingestSource').value || "Inconnu";
+            const btn = document.getElementById('ingestBtn');
+            const status = document.getElementById('ingestStatus');
+
+            if (!text) return alert("Veuillez entrer du texte à ingérer.");
+
+            btn.innerText = "Ingestion en cours...";
+            btn.disabled = true;
+            status.innerText = "";
+
+            try {
+                const response = await fetch('/api/ingest', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, source })
+                });
+
+                if (response.ok) {
+                    status.innerText = "✅ Ingestion réussie !";
+                    status.className = "mt-3 text-sm text-center font-medium text-green-600";
+                    document.getElementById('ingestText').value = "";
+                } else {
+                    throw new Error("Erreur serveur");
+                }
+            } catch (error) {
+                status.innerText = "❌ Échec de l'ingestion.";
+                status.className = "mt-3 text-sm text-center font-medium text-red-600";
+            } finally {
+                btn.innerText = "Ingérer le document";
+                btn.disabled = false;
+            }
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('questionInput');
+            const question = input.value;
+            const chatBox = document.getElementById('chatBox');
+            const btn = document.getElementById('askBtn');
+
+            if (!question) return;
+
+            // Afficher la question
+            chatBox.innerHTML += `<div class="self-end bg-blue-100 text-blue-900 p-3 rounded-lg max-w-[80%] shadow-sm"><b>Vous:</b> ${question}</div>`;
+            input.value = "";
+            btn.innerText = "...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                let sourcesHtml = data.sources.length > 0 
+                    ? `<div class="text-xs text-gray-500 mt-2 border-t pt-1">Sources : ${[...new Set(data.sources)].join(', ')}</div>` 
+                    : '';
+
+                // Afficher la réponse
+                chatBox.innerHTML += `<div class="self-start bg-white border border-gray-200 text-gray-800 p-3 rounded-lg max-w-[90%] shadow-sm whitespace-pre-wrap"><b>IA:</b> ${data.answer} ${sourcesHtml}</div>`;
+            } catch (error) {
+                chatBox.innerHTML += `<div class="self-start bg-red-100 text-red-700 p-3 rounded-lg max-w-[80%]">Erreur lors de la communication avec l'API.</div>`;
+            } finally {
+                btn.innerText = "Envoyer";
+                btn.disabled = false;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') askQuestion();
+        }
+    </script>
+</body>
+</html>
